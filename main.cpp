@@ -5,6 +5,7 @@
 static GLuint gGrassTex = 0;
 static GLuint gSkyTex   = 0;
 static GLuint gRockTex  = 0;
+static GLuint gRoadTex  = 0;
 
 void setupProjection(int w, int h) {
     if (h == 0) h = 1;
@@ -106,6 +107,43 @@ void createRockTexture() {
     gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, w, h, GL_RGB, GL_UNSIGNED_BYTE, data.data());
 }
 
+void createRoadTexture() {
+    const int w = 256, h = 256;
+    std::vector<unsigned char> data(w * h * 3);
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int i = (y * w + x) * 3;
+
+            unsigned char r = 65;
+            unsigned char g = 65;
+            unsigned char b = 70;
+
+            float noise = 0.5f + 0.5f * std::sin(x * 0.31f) * std::cos(y * 0.27f);
+            r = (unsigned char)(r + noise * 18);
+            g = (unsigned char)(g + noise * 18);
+            b = (unsigned char)(b + noise * 18);
+
+            
+            if (x > 118 && x < 138 && ((y / 20) % 2 == 0)) {
+                r = 235; g = 235; b = 110;
+            }
+
+            data[i + 0] = r;
+            data[i + 1] = g;
+            data[i + 2] = b;
+        }
+    }
+
+    glGenTextures(1, &gRoadTex);
+    glBindTexture(GL_TEXTURE_2D, gRoadTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, w, h, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+}
+
 void initScene() {
     glClearColor(0.78f, 0.90f, 1.0f, 1.0f);
     glEnable(GL_DEPTH_TEST);
@@ -114,6 +152,7 @@ void initScene() {
     createGrassTexture();
     createSkyTexture();
     createRockTexture();
+    createRoadTexture();
 }
 
 void drawCubeBounds(float halfSize) {
@@ -193,19 +232,113 @@ void drawRelief() {
     glEnd();
 }
 
+void drawRoad() {
+    glBindTexture(GL_TEXTURE_2D, gRoadTex);
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    const float y = -4.98f;
+    const int segments = 160;
+    const float outerA = 7.0f;
+    const float outerB = 4.2f;
+    const float innerA = 4.8f;
+    const float innerB = 2.4f;
+
+    glBegin(GL_QUAD_STRIP);
+    for (int i = 0; i <= segments; ++i) {
+        float t = 2.0f * 3.1415926f * (float)i / (float)segments;
+        float ct = std::cos(t);
+        float st = std::sin(t);
+
+        float xOuter = outerA * ct;
+        float zOuter = outerB * st;
+        float xInner = innerA * ct;
+        float zInner = innerB * st;
+
+        float u = 8.0f * (float)i / (float)segments;
+
+        glTexCoord2f(u, 0.0f); glVertex3f(xOuter, y, zOuter);
+        glTexCoord2f(u, 1.0f); glVertex3f(xInner, y, zInner);
+    }
+    glEnd();
+}
+
+void drawBuilding(float x, float z, float sx, float sy, float sz) {
+    glDisable(GL_TEXTURE_2D);
+    glPushMatrix();
+    glTranslatef(x, -5.0f + sy / 2.0f, z);
+    glScalef(sx, sy, sz);
+
+    glColor3f(0.75f, 0.55f, 0.40f);
+    glutSolidCube(1.0f);
+
+    glTranslatef(0.0f, 0.55f, 0.0f);
+    glScalef(1.05f, 0.25f, 1.05f);
+    glColor3f(0.55f, 0.15f, 0.15f);
+    glutSolidCube(1.0f);
+
+    glPopMatrix();
+    glEnable(GL_TEXTURE_2D);
+}
+
+void drawTree(float x, float z) {
+    glDisable(GL_TEXTURE_2D);
+
+    glPushMatrix();
+    glTranslatef(x, -4.2f, z);
+
+    glColor3f(0.45f, 0.25f, 0.10f);
+    glPushMatrix();
+    glScalef(0.35f, 1.6f, 0.35f);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    glColor3f(0.10f, 0.55f, 0.15f);
+    glTranslatef(0.0f, 1.2f, 0.0f);
+    glutSolidSphere(0.85f, 16, 16);
+
+    glPopMatrix();
+    glEnable(GL_TEXTURE_2D);
+}
+
+void drawStaticObjects() {
+    // 6 cladiri
+    drawBuilding(-8.0f, -7.5f, 1.4f, 3.0f, 1.4f);
+    drawBuilding(-5.8f, -7.2f, 1.5f, 4.0f, 1.5f);
+    drawBuilding(-3.3f, -7.0f, 1.3f, 2.6f, 1.3f);
+
+    drawBuilding( 8.0f,  7.3f, 1.5f, 3.6f, 1.5f);
+    drawBuilding( 5.6f,  7.0f, 1.7f, 4.4f, 1.7f);
+    drawBuilding( 3.2f,  7.2f, 1.4f, 3.0f, 1.4f);
+
+    // 6 pomi
+    drawTree(-8.3f,  5.0f);
+    drawTree(-6.5f,  6.8f);
+    drawTree(-4.5f,  5.5f);
+
+    drawTree( 8.2f, -5.2f);
+    drawTree( 6.3f, -6.7f);
+    drawTree( 4.2f, -5.6f);
+}
+
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
 
-    gluLookAt(7.5, 5.0, 15.0,
+    gluLookAt(9.0, 8.0, 17.0,
               0.0, -3.5, 0.0,
               0.0,  1.0, 0.0);
 
     drawGround(10.0f);
     drawSkyWalls(10.0f);
-    drawRelief();
-    drawCubeBounds(10.0f);
 
+    // P1
+    drawRelief();
+
+    // P2
+    drawRoad();
+    drawStaticObjects();
+
+    drawCubeBounds(10.0f);
     glutSwapBuffers();
 }
 
@@ -217,7 +350,7 @@ int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(1000, 700);
-    glutCreateWindow("P1 - Scena in cub");
+    glutCreateWindow("P1 + P2 - Scena in cub");
 
     initScene();
     glutDisplayFunc(display);
